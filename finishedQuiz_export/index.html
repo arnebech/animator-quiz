@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>finishedQuiz &middot; Made with Sencha Animator</title><meta name = "viewport" content = "user-scalable=no, width=device-width">
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<script type="text/javascript">
+//hide the address bar
+window.addEventListener("load",function() {
+	setTimeout(function(){
+		window.scrollTo(0, 1);
+	}, 0);
+});
+</script><script type="text/javascript">
+if (typeof(AN) === 'undefined') {
+   AN = {}; 
+}
+AN.Controller = {
+    
+    scenes: {},
+    scenesArray: [],
+    currentSceneID: -1,
+    olElement: null,
+    clickEvents: {},
+    useOrmma: false,
+    
+    setConfig: function(configData) {
+        
+        this.clickEvents = configData.clickEvents
+
+        this.olElement = document.getElementById(configData.parentId);
+        var liElements = this.olElement.children;
+        
+        if (configData.ormma) {
+            this.useOrmma = true;
+        }
+        
+        var scene;
+        for (var i=0; i < configData.scenes.length; i++) {
+            scene = configData.scenes[i];
+            scene.element = liElements[i];
+            this.scenes[scene.id] = scene;
+            this.scenesArray.push(scene);
+        }
+        
+        this.setupListeners();
+        
+        this.startSceneByID(this.scenesArray[0].id);
+        
+        
+        
+    },
+    
+    
+    runningAnimationCount: 0,
+    browser: 'webkit',
+    
+    setupListeners: function() {
+        var me = this;
+        
+        var eventName = "webkitAnimationEnd";
+
+        if (document.body.style.MozAnimationName !== undefined) {
+            eventName = "animationend";
+            this.browser = "moz";
+        }
+
+        this.olElement.addEventListener(eventName, function() {
+            me.onAnimationEnd();
+        },false);
+        
+        function addMousemoveListenerTo(scene) {
+            scene.element.addEventListener('mousemove', function(event){
+                scene.mousemoveAction(me, event);
+            }, false);
+        }
+        
+        var scene;
+        for (var i=0; i < this.scenesArray.length; i++) {
+            scene = this.scenesArray[i];
+            if (scene.mousemoveAction) {
+                
+                addMousemoveListenerTo(scene);
+            }
+        }
+        
+        function addListenerTo(element, event, aFunction) {
+            element.addEventListener(event, function(event){
+                aFunction(me,event);
+            }, false);
+        }
+        
+        //add click events
+        var element, clickEvent;
+        for (var i=0; i < this.clickEvents.length; i++) {
+            clickEvent = this.clickEvents[i];
+            element = document.getElementById(clickEvent.id);
+            addListenerTo(element, 'click', clickEvent.handler);
+        }
+        
+    },
+    
+    
+    onAnimationEnd: function() {
+        
+        this.runningAnimationCount--;
+        
+        if (this.runningAnimationCount === 0) {
+            this.onSceneFinish();
+        }
+        
+    },
+    
+    startSceneByID: function(sceneID) {
+
+        var me = this;
+
+        //restart current scene without flicker
+        if (sceneID === this.currentSceneID) {
+            this.scenes[sceneID].element.setAttribute('class','run restart');
+            
+            setTimeout(function(){
+
+                me.runningAnimationCount = me.scenes[sceneID].animationCount;
+                me.scenes[sceneID].element.setAttribute('class','run');
+                
+                if (me.scenes[sceneID].startAction) {
+                    me.scenes[sceneID].startAction(me);
+                }
+                if (me.scenes[sceneID].animationCount === 0 ) {
+                    me.onSceneFinish();
+                }
+                
+                },0);
+            return;
+        } else if (this.currentSceneID !== -1) {
+            this.scenes[this.currentSceneID].element.setAttribute('class','');
+        }
+
+        this.runningAnimationCount = this.scenes[sceneID].animationCount;
+        
+        this.currentSceneID = sceneID;
+        var nextScene = this.scenes[sceneID];
+        
+        if (this.browser === 'moz') {
+            nextScene.element.setAttribute('class','run restart');
+            var unused = nextScene.element.offsetHeight;
+            nextScene.element.setAttribute('class','run');    
+        } else {
+            nextScene.element.setAttribute('class','run');
+        }
+        
+        if (this.useOrmma) {
+            
+           this.ormmaNextScene(nextScene);
+        }
+        
+        
+        if (nextScene.startAction) {
+            nextScene.startAction(this);
+        }
+        if (nextScene.animationCount === 0 ) {
+            this.onSceneFinish();
+        }
+
+
+    },
+    
+    replayScene: function() {
+        this.startSceneByID(this.currentSceneID);
+    },
+    
+    onSceneFinish: function() {
+        
+        if (this.scenes[this.currentSceneID].endAction) {
+            this.scenes[this.currentSceneID].endAction(this);
+        }
+        
+    },
+    
+    goToNextScene: function() {
+        var nextIndex = this.scenesArray.indexOf(this.scenes[this.currentSceneID]) + 1;
+        var nextScene;
+        if (nextScene = this.scenesArray[nextIndex]) {
+            this.startSceneByID(nextScene.id);
+        }
+    },
+    
+    goToURL: function(aURL) {
+        document.location.href = aURL;
+    },
+    
+    ormmaNextScene: function(nextScene) {
+        var currentState = ormma.getState();
+            
+        if (nextScene.dimensions.expanded) {
+            //expanded state
+            //check if we're expanded
+            var maxSize = ormma.getMaxSize()
+            if (currentState !== 'expanded') {
+                ormma.expand({
+                    x:0,
+                    y:0,
+                    width: maxSize.width,
+                    height: maxSize.height
+                })
+            }
+            
+            var transform = "";
+            var elementHeight = nextScene.element.offsetHeight;
+            var elementWidth = nextScene.element.offsetWidth;
+            var y = (maxSize.height - elementHeight) / 2;
+            var x = (maxSize.width - elementWidth) / 2;
+            transform += " translate3d("+Math.round(x)+"px,"+Math.round(y)+"px,0)";   
+            
+            
+            if (nextScene.dimensions.fit) {
+                var scaleFactor = Math.min(maxSize.width/elementWidth, maxSize.height/elementHeight);                    
+                transform += " scale3d("+scaleFactor+","+scaleFactor+",1)";
+            }
+            nextScene.element.style.webkitTransform = transform;
+            
+        } else {
+            
+            if (currentState === 'expanded') {
+                ormma.close();
+            }
+            ormma.resize(nextScene.dimensions.width,nextScene.dimensions.height);
+        }
+            
+        
+    }
+
+}
+</script><script type="text/javascript">
+window.addEventListener('load', function(){
+    var configData = {
+        parentId: 'AN-sObj-parentOl',
+        ormma: false,
+        scenes: [{id: 0,animationCount: 3,duration: 15366.66666666667,dimensions: {height: 460,width: 320,expanded: false,fit: false},startAction: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+
+//create a global object/namespace for us to use
+if (typeof(quizData) === "undefined") {
+    quizData = {};
+}
+
+//to help us work with scenes, let's translate some
+//scene ids into names, the scense id can be found
+//by hovering the mouse over a scene in the scene panel 
+// in animator 1.1
+if (!quizData.sceneIDs) {
+    quizData.sceneIDs = {
+        question: 1,
+        wrong: 2,
+        correct: 3,
+        score: 4
+    };
+}
+
+
+//let's set up some questions
+if (!quizData.questions) {
+
+    //each question consist of question text, 4 answers,
+    // and the index of the correct answer
+
+    quizData.questions = [
+        {
+            question: "Which one of these is a css3 property?",
+            answers: [
+                'animation-degradation',
+                'animation-path',
+                'animation-fill-mode',
+                'animation-speed'
+            ],
+            correctAnswerIndex: 2
+        },
+        {
+            question: "What is the syntax to start a keyframe segment in css3?",
+            answers: [
+                "@keyframes 'name'",
+                "@animation 'name'",
+                ".element:animation",
+                ".element:keyframes"
+            ],
+            correctAnswerIndex: 0
+        },
+        {
+            question: "Which is a valid css3 animation-timing-function?",
+            answers: [
+                'slide-in',
+                'ease-out',
+                'jump-out',
+                'fast-in'
+            ],
+            correctAnswerIndex: 1
+        }  
+    ];
+
+}
+
+//set up or reset variable for current question
+quizData.currentQuestionIndex = -1;
+
+//set up or reset variables to keep track of score
+quizData.scoreRight = 0;
+quizData.scoreWrong = 0;
+
+}},{id: 1,animationCount: 5,duration: 2635.8024691358023,dimensions: {height: 460,width: 320,expanded: false,fit: false},startAction: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+//increment the question index
+var index = ++quizData.currentQuestionIndex;
+
+//if we have no more questions, let's go to the score scene
+if (index >= quizData.questions.length) {
+    controller.startSceneByID(quizData.sceneIDs.score);
+    return;
+}
+
+//get current question
+var currentQuestion = quizData.questions[index];
+
+//get references to the different elements on the stage
+//notice that the text we want to edit resides inside
+//span elements
+var question = document.querySelector('#question span');
+var button1 = document.querySelector('#button1 span');
+var button2 = document.querySelector('#button2 span');
+var button3 = document.querySelector('#button3 span');
+var button4 = document.querySelector('#button4 span');
+
+//update the question text
+question.innerHTML = currentQuestion.question;
+
+//update buttons/answers
+button1.innerHTML = currentQuestion.answers[0];
+button2.innerHTML = currentQuestion.answers[1];
+button3.innerHTML = currentQuestion.answers[2];
+button4.innerHTML = currentQuestion.answers[3];
+
+//store the correct answer index
+quizData.correctAnswerIndex = currentQuestion.correctAnswerIndex;
+
+}},{id: 2,animationCount: 4,duration: 1537.0370370370372,dimensions: {height: 460,width: 320,expanded: false,fit: false},startAction: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+//get the current question
+var question = quizData.questions[quizData.currentQuestionIndex];
+
+//get the element that displays the correct answer
+var correctElement = document.querySelector('#correct-answer span');
+
+//update the answer
+correctElement.innerHTML = question.answers[question.correctAnswerIndex];
+
+//increase the wrong score
+quizData.scoreWrong++;
+
+}},{id: 3,animationCount: 3,duration: 3141.9753086419755,dimensions: {height: 460,width: 320,expanded: false,fit: false},startAction: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+//increment the correct score
+quizData.scoreRight++;
+
+
+}},{id: 4,animationCount: 3,duration: 1450.6172839506173,dimensions: {height: 460,width: 320,expanded: false,fit: false},startAction: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+//get element for score
+var scoreElement = document.querySelector('#final-score span');
+
+//get score and total possible points
+var right = quizData.scoreRight;
+var total = quizData.scoreRight + quizData.scoreWrong;
+
+//create score text
+var text = right + '/' + total + ' points';
+
+//display score text
+scoreElement.innerHTML = text;
+
+}}],
+        clickEvents: [{id: "AN-sObj-1514",handler: function(controller) {
+controller.goToNextScene();
+}},{id: "button1",handler: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+//check if this button is the correct button
+var buttonIndex = 0;
+if (quizData.correctAnswerIndex === buttonIndex) {
+    controller.startSceneByID(quizData.sceneIDs.correct);
+} else {
+    controller.startSceneByID(quizData.sceneIDs.wrong);
+}
+
+}},{id: "button2",handler: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+//check if this button is the correct button
+var buttonIndex = 1;
+if (quizData.correctAnswerIndex === buttonIndex) {
+    controller.startSceneByID(quizData.sceneIDs.correct);
+} else {
+    controller.startSceneByID(quizData.sceneIDs.wrong);
+}
+
+}},{id: "button3",handler: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+
+//check if this button is the correct button
+var buttonIndex = 2;
+if (quizData.correctAnswerIndex === buttonIndex) {
+    controller.startSceneByID(quizData.sceneIDs.correct);
+} else {
+    controller.startSceneByID(quizData.sceneIDs.wrong);
+}
+
+}},{id: "button4",handler: function(controller,event) {
+//Enter your custom js code here; 
+//E.g. controller.goToNextScene()
+//Other controller calls are goToURL(url), replayScene(), startSceneByID()
+//For mouse events, the event object is also available
+
+
+//check if this button is the correct button
+var buttonIndex = 3;
+if (quizData.correctAnswerIndex === buttonIndex) {
+    controller.startSceneByID(quizData.sceneIDs.correct);
+} else {
+    controller.startSceneByID(quizData.sceneIDs.wrong);
+}
+
+}},{id: "AN-sObj-1545",handler: function(controller) {
+controller.startSceneByID(1);
+}},{id: "AN-sObj-1555",handler: function(controller) {
+controller.startSceneByID(1);
+}},{id: "AN-sObj-1564",handler: function(controller) {
+controller.startSceneByID(0);
+}}]
+    };
+    AN.Controller.setConfig(configData);
+}, false);
+</script>
+<style type="text/css">
+
+.AN-sObj-stage {
+    position: relative;
+    overflow: hidden;
+}
+
+.AN-sObj-stage div {
+    position: absolute;
+}
+
+.AN-sObj-stage a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.AN-sObj-stage * {
+    margin: 0;
+    padding: 0;
+    -moz-font-smoothing: antialiased;
+    -webkit-font-smoothing: antialiased;
+}
+
+.AN-sObj-stage img {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+body,.AN-sObj-stage,ol,li {
+    margin: 0;
+    padding: 0;
+}
+
+ol {
+    list-style: none;
+    position: relative;
+}
+
+li {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.AN-Scene-Description {
+    display: none;
+}
+
+@-webkit-keyframes AN-ani-delay {
+    0% {
+    }
+
+    100% {
+    }
+}
+
+@-moz-keyframes AN-ani-delay {
+    0% {
+    }
+
+    100% {
+    }
+}
+
+li {
+    display: none;
+}
+
+li.run {
+    display: block;
+}
+
+.restart * {
+    -moz-animation-name: none !important;
+    -webkit-animation-name: none !important;
+}
+
+#AN-sObj-1511 {
+    -moz-transform: translate(-234px, -64px);
+    -webkit-transform: translate3d(-234px, -64px, 0px);
+    width: 800px;
+    height: 800px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1512 {
+    -moz-transform: translate(0px, 0px);
+    -webkit-transform: translate3d(0px, 0px, 0px);
+    width: 320px;
+    height: 480px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1513 {
+    -moz-transform: translate(81px, 39px);
+    -webkit-transform: translate3d(81px, 39px, 0px);
+    width: 158px;
+    height: 108px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1514 {
+    -moz-transform: translate(44px, 391px);
+    -webkit-transform: translate3d(44px, 391px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1515 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#AN-sObj-scene-0 .AN-sObj-stage {
+    height: 460px;
+    width: 320px;
+    background-color: rgba(255,255,255,1);
+}
+
+#AN-sObj-1525 {
+    -moz-transform: translate(0px, 0px);
+    -webkit-transform: translate3d(0px, 0px, 0px);
+    width: 320px;
+    height: 480px;
+    top: 0;
+    left: 0;
+}
+
+#question {
+    -moz-transform: translate(34px, 29px);
+    -webkit-transform: translate3d(34px, 29px, 0px);
+    width: 252px;
+    height: 117px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 28px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+}
+
+#button1 {
+    -moz-transform: translate(38px, 187px);
+    -webkit-transform: translate3d(38px, 187px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1528 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#button2 {
+    -moz-transform: translate(38px, 253px);
+    -webkit-transform: translate3d(38px, 253px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1530 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#button3 {
+    -moz-transform: translate(38px, 318px);
+    -webkit-transform: translate3d(38px, 318px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1532 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#button4 {
+    -moz-transform: translate(38px, 384px);
+    -webkit-transform: translate3d(38px, 384px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1534 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#AN-sObj-scene-1 .AN-sObj-stage {
+    height: 460px;
+    width: 320px;
+    background-color: rgba(255,255,255,1);
+}
+
+#AN-sObj-1541 {
+    -moz-transform: translate(0px, 0px);
+    -webkit-transform: translate3d(0px, 0px, 0px);
+    width: 320px;
+    height: 480px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1542 {
+    -moz-transform: translate(34px, 29px);
+    -webkit-transform: translate3d(34px, 29px, 0px);
+    width: 252px;
+    height: 40px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 28px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+}
+
+#AN-sObj-1543 {
+    -moz-transform: translate(34px, 101px);
+    -webkit-transform: translate3d(34px, 101px, 0px);
+    width: 252px;
+    height: 38px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 20px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+}
+
+#correct-answer {
+    -moz-transform: translate(34px, 139px);
+    -webkit-transform: translate3d(34px, 139px, 0px);
+    width: 252px;
+    height: 38px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 25px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+}
+
+#AN-sObj-1545 {
+    -moz-transform: translate(38px, 374px);
+    -webkit-transform: translate3d(38px, 374px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1546 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#AN-sObj-scene-2 .AN-sObj-stage {
+    height: 460px;
+    width: 320px;
+    background-color: rgba(255,255,255,1);
+}
+
+#AN-sObj-1552 {
+    -moz-transform: translate(0px, 0px);
+    -webkit-transform: translate3d(0px, 0px, 0px);
+    width: 320px;
+    height: 480px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1553 {
+    -moz-transform: translate(34px, 33px);
+    -webkit-transform: translate3d(34px, 33px, 0px);
+    width: 252px;
+    height: 37px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 28px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+    -moz-transform-origin: 50% 44.59%;
+    -webkit-transform-origin: 50% 44.59%;
+}
+
+#AN-sObj-1554 {
+    -moz-transform: translate(270px, 88px) scale(0.5, 0.5);
+    -webkit-transform: translate3d(270px, 88px, 0px) scale3d(0.5, 0.5, 1);
+    width: 250px;
+    height: 278px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1555 {
+    -moz-transform: translate(38px, 366px);
+    -webkit-transform: translate3d(38px, 366px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1556 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#AN-sObj-scene-3 .AN-sObj-stage {
+    height: 460px;
+    width: 320px;
+    background-color: rgba(255,255,255,1);
+}
+
+#AN-sObj-1561 {
+    -moz-transform: translate(0px, 0px);
+    -webkit-transform: translate3d(0px, 0px, 0px);
+    width: 320px;
+    height: 480px;
+    top: 0;
+    left: 0;
+}
+
+#AN-sObj-1562 {
+    -moz-transform: translate(29px, 22px);
+    -webkit-transform: translate3d(29px, 22px, 0px);
+    width: 252px;
+    height: 71px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 28px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+}
+
+#final-score {
+    -moz-transform: translate(29px, 116px);
+    -webkit-transform: translate3d(29px, 116px, 0px);
+    width: 252px;
+    height: 71px;
+    top: 0;
+    left: 0;
+    -moz-text-fill-color: rgba(242,90,52,1);
+    -webkit-text-fill-color: rgba(242,90,52,1);
+    font-size: 40px;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: rgba(0,0,0,1) 0px 1px 1px;
+}
+
+#AN-sObj-1564 {
+    -moz-transform: translate(38px, 357px);
+    -webkit-transform: translate3d(38px, 357px, 0px);
+    width: 239px;
+    height: 34px;
+    border-top: 2px solid rgba(213,204,167,1);
+    border-right: 2px solid rgba(213,204,167,1);
+    border-bottom: 2px solid rgba(213,204,167,1);
+    border-left: 2px solid rgba(213,204,167,1);
+    background-color: rgba(226,220,195,1);
+    top: 0;
+    left: 0;
+    -moz-transform-origin: 50% 50%;
+    -webkit-transform-origin: 50% 50%;
+    border-top-left-radius: 78px;
+    -webkit-border-top-left-radius: 78px;
+    border-top-right-radius: 78px;
+    -webkit-border-top-right-radius: 78px;
+    border-bottom-right-radius: 78px;
+    -webkit-border-bottom-right-radius: 78px;
+    border-bottom-left-radius: 78px;
+    -webkit-border-bottom-left-radius: 78px;
+}
+
+#AN-sObj-1565 {
+    -moz-transform: translate(22px, 5px);
+    -webkit-transform: translate3d(22px, 5px, 0px);
+    width: 197px;
+    height: 23px;
+    top: 0;
+    left: 0;
+    text-align: center;
+    font-size: 18px;
+    -moz-text-fill-color: rgba(129,116,62,1);
+    -webkit-text-fill-color: rgba(129,116,62,1);
+    font-weight: bold;
+    font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-shadow: rgba(255,255,255,0.5) 0px 1px 0px;
+}
+
+#AN-sObj-scene-4 .AN-sObj-stage {
+    height: 460px;
+    width: 320px;
+    background-color: rgba(255,255,255,1);
+}@-webkit-keyframes AN-ani-1516 {
+    0% {
+        -webkit-transform: translate3d(-234px, -64px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+        -webkit-animation-timing-function: linear;
+    }
+
+    100% {
+        -webkit-transform: translate3d(-234px, -64px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(20deg);
+        -webkit-animation-timing-function: ease;
+    }
+}
+
+@-moz-keyframes AN-ani-1516 {
+    0% {
+        -moz-transform: translate(-234px, -64px)   rotate(0deg);
+        -moz-animation-timing-function: linear;
+    }
+
+    100% {
+        -moz-transform: translate(-234px, -64px)   rotate(20deg);
+        -moz-animation-timing-function: ease;
+    }
+}
+
+.run #AN-sObj-1511 {
+    -moz-animation-name: AN-ani-1516;
+    -webkit-animation-name: AN-ani-1516;
+    -moz-animation-duration: 15.366666666666669s;
+    -webkit-animation-duration: 15.366666666666669s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1511 {
+    -moz-transform: translate(-234px, -64px)   rotate(0deg);
+    -webkit-transform: translate3d(-234px, -64px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+    -moz-animation-timing-function: linear;
+    -webkit-animation-timing-function: linear;
+}
+
+@-webkit-keyframes AN-ani-1517 {
+    0% {
+        -webkit-transform: translate3d(81px, -130px, 0px);
+    }
+
+    100% {
+        -webkit-transform: translate3d(81px, 39px, 0px);
+    }
+}
+
+@-moz-keyframes AN-ani-1517 {
+    0% {
+        -moz-transform: translate(81px, -130px);
+    }
+
+    100% {
+        -moz-transform: translate(81px, 39px);
+    }
+}
+
+.run #AN-sObj-1513 {
+    -moz-animation-name: AN-ani-1517;
+    -webkit-animation-name: AN-ani-1517;
+    -moz-animation-duration: 1.117283950617284s;
+    -webkit-animation-duration: 1.117283950617284s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1513 {
+    -moz-transform: translate(81px, -130px);
+    -webkit-transform: translate3d(81px, -130px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1518 {
+    0% {
+        -webkit-transform: translate3d(44px, 502px, 0px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(44px, 502px, 0px);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(44px, 336px, 0px);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1518 {
+    0% {
+        -moz-transform: translate(44px, 502px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(44px, 502px);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(44px, 336px);
+        opacity: 1;
+    }
+}
+
+.run #AN-sObj-1514 {
+    -moz-animation-name: AN-ani-1518;
+    -webkit-animation-name: AN-ani-1518;
+    -moz-animation-duration: 0.8708395061728393s;
+    -webkit-animation-duration: 0.8708395061728393s;
+    -moz-animation-delay: 0.802s;
+    -webkit-animation-delay: 0.802s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1514 {
+    -moz-transform: translate(44px, 502px);
+    -webkit-transform: translate3d(44px, 502px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1535 {
+    0% {
+        -webkit-transform: translate3d(34px, -133px, 0px);
+    }
+
+    100% {
+        -webkit-transform: translate3d(33px, 15px, 0px);
+    }
+}
+
+@-moz-keyframes AN-ani-1535 {
+    0% {
+        -moz-transform: translate(34px, -133px);
+    }
+
+    100% {
+        -moz-transform: translate(33px, 15px);
+    }
+}
+
+.run #question {
+    -moz-animation-name: AN-ani-1535;
+    -webkit-animation-name: AN-ani-1535;
+    -moz-animation-duration: 1.0432098765432098s;
+    -webkit-animation-duration: 1.0432098765432098s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #question {
+    -moz-transform: translate(34px, -133px);
+    -webkit-transform: translate3d(34px, -133px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1536 {
+    0% {
+        -webkit-transform: translate3d(38px, 187px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 187px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 187px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1536 {
+    0% {
+        -moz-transform: translate(38px, 187px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 187px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 187px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #button1 {
+    -moz-animation-name: AN-ani-1536;
+    -webkit-animation-name: AN-ani-1536;
+    -moz-animation-duration: 0.7962222222222223s;
+    -webkit-animation-duration: 0.7962222222222223s;
+    -moz-animation-delay: 0.926s;
+    -webkit-animation-delay: 0.926s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #button1 {
+    -moz-transform: translate(38px, 187px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 187px, 0px) scale3d(0, 0, 1);
+}
+
+@-webkit-keyframes AN-ani-1537 {
+    0% {
+        -webkit-transform: translate3d(38px, 253px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 253px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 253px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1537 {
+    0% {
+        -moz-transform: translate(38px, 253px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 253px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 253px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #button2 {
+    -moz-animation-name: AN-ani-1537;
+    -webkit-animation-name: AN-ani-1537;
+    -moz-animation-duration: 0.8089012345679012s;
+    -webkit-animation-duration: 0.8089012345679012s;
+    -moz-animation-delay: 1.259s;
+    -webkit-animation-delay: 1.259s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #button2 {
+    -moz-transform: translate(38px, 253px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 253px, 0px) scale3d(0, 0, 1);
+}
+
+@-webkit-keyframes AN-ani-1538 {
+    0% {
+        -webkit-transform: translate3d(38px, 318px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 318px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 318px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1538 {
+    0% {
+        -moz-transform: translate(38px, 318px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 318px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 318px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #button3 {
+    -moz-animation-name: AN-ani-1538;
+    -webkit-animation-name: AN-ani-1538;
+    -moz-animation-duration: 0.7841975308641973s;
+    -webkit-animation-duration: 0.7841975308641973s;
+    -moz-animation-delay: 1.58s;
+    -webkit-animation-delay: 1.58s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #button3 {
+    -moz-transform: translate(38px, 318px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 318px, 0px) scale3d(0, 0, 1);
+}
+
+@-webkit-keyframes AN-ani-1539 {
+    0% {
+        -webkit-transform: translate3d(38px, 384px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 384px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 384px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1539 {
+    0% {
+        -moz-transform: translate(38px, 384px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 384px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 384px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #button4 {
+    -moz-animation-name: AN-ani-1539;
+    -webkit-animation-name: AN-ani-1539;
+    -moz-animation-duration: 0.8088024691358022s;
+    -webkit-animation-duration: 0.8088024691358022s;
+    -moz-animation-delay: 1.827s;
+    -webkit-animation-delay: 1.827s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #button4 {
+    -moz-transform: translate(38px, 384px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 384px, 0px) scale3d(0, 0, 1);
+}
+
+@-webkit-keyframes AN-ani-1547 {
+    0% {
+        -webkit-transform: translate3d(34px, -57px, 0px);
+    }
+
+    100% {
+        -webkit-transform: translate3d(34px, 29px, 0px);
+    }
+}
+
+@-moz-keyframes AN-ani-1547 {
+    0% {
+        -moz-transform: translate(34px, -57px);
+    }
+
+    100% {
+        -moz-transform: translate(34px, 29px);
+    }
+}
+
+.run #AN-sObj-1542 {
+    -moz-animation-name: AN-ani-1547;
+    -webkit-animation-name: AN-ani-1547;
+    -moz-animation-duration: 0.7592592592592593s;
+    -webkit-animation-duration: 0.7592592592592593s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1542 {
+    -moz-transform: translate(34px, -57px);
+    -webkit-transform: translate3d(34px, -57px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1548 {
+    0% {
+        -webkit-transform: translate3d(34px, -49px, 0px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(34px, -49px, 0px);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(34px, 101px, 0px);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1548 {
+    0% {
+        -moz-transform: translate(34px, -49px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(34px, -49px);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(34px, 101px);
+        opacity: 1;
+    }
+}
+
+.run #AN-sObj-1543 {
+    -moz-animation-name: AN-ani-1548;
+    -webkit-animation-name: AN-ani-1548;
+    -moz-animation-duration: 0.6234814814814816s;
+    -webkit-animation-duration: 0.6234814814814816s;
+    -moz-animation-delay: 0.358s;
+    -webkit-animation-delay: 0.358s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1543 {
+    -moz-transform: translate(34px, -49px);
+    -webkit-transform: translate3d(34px, -49px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1549 {
+    0% {
+        -webkit-transform: translate3d(34px, -49px, 0px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(34px, -49px, 0px);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(34px, 139px, 0px);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1549 {
+    0% {
+        -moz-transform: translate(34px, -49px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(34px, -49px);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(34px, 139px);
+        opacity: 1;
+    }
+}
+
+.run #correct-answer {
+    -moz-animation-name: AN-ani-1549;
+    -webkit-animation-name: AN-ani-1549;
+    -moz-animation-duration: 0.6230864197530864s;
+    -webkit-animation-duration: 0.6230864197530864s;
+    -moz-animation-delay: 0.63s;
+    -webkit-animation-delay: 0.63s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #correct-answer {
+    -moz-transform: translate(34px, -49px);
+    -webkit-transform: translate3d(34px, -49px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1550 {
+    0% {
+        -webkit-transform: translate3d(38px, 374px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 374px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 374px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1550 {
+    0% {
+        -moz-transform: translate(38px, 374px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 374px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 374px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #AN-sObj-1545 {
+    -moz-animation-name: AN-ani-1550;
+    -webkit-animation-name: AN-ani-1550;
+    -moz-animation-duration: 0.4380370370370372s;
+    -webkit-animation-duration: 0.4380370370370372s;
+    -moz-animation-delay: 1.099s;
+    -webkit-animation-delay: 1.099s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1545 {
+    -moz-transform: translate(38px, 374px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 374px, 0px) scale3d(0, 0, 1);
+}
+
+@-webkit-keyframes AN-ani-1557 {
+    0% {
+        -webkit-transform: translate3d(34px, -58px, 0px);
+    }
+
+    100% {
+        -webkit-transform: translate3d(34px, 33px, 0px);
+    }
+}
+
+@-moz-keyframes AN-ani-1557 {
+    0% {
+        -moz-transform: translate(34px, -58px);
+    }
+
+    100% {
+        -moz-transform: translate(34px, 33px);
+    }
+}
+
+.run #AN-sObj-1553 {
+    -moz-animation-name: AN-ani-1557;
+    -webkit-animation-name: AN-ani-1557;
+    -moz-animation-duration: 0.7098765432098766s;
+    -webkit-animation-duration: 0.7098765432098766s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1553 {
+    -moz-transform: translate(34px, -58px);
+    -webkit-transform: translate3d(34px, -58px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1558 {
+    0% {
+        -webkit-transform: translate3d(270px, 88px, 0px) scale3d(0.5, 0.5, 1);
+        -webkit-animation-timing-function: cubic-bezier(0.405,0.915,0.59, 0.055);
+    }
+
+    100% {
+        -webkit-transform: translate3d(-206px, 88px, 0px) scale3d(0.5, 0.5, 1);
+        -webkit-animation-timing-function: ease;
+    }
+}
+
+@-moz-keyframes AN-ani-1558 {
+    0% {
+        -moz-transform: translate(270px, 88px) scale(0.5, 0.5);
+        -moz-animation-timing-function: cubic-bezier(0.405,0.915,0.59, 0.055);
+    }
+
+    100% {
+        -moz-transform: translate(-206px, 88px) scale(0.5, 0.5);
+        -moz-animation-timing-function: ease;
+    }
+}
+
+.run #AN-sObj-1554 {
+    -moz-animation-name: AN-ani-1558;
+    -webkit-animation-name: AN-ani-1558;
+    -moz-animation-duration: 3.1419753086419755s;
+    -webkit-animation-duration: 3.1419753086419755s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1554 {
+    -moz-transform: translate(270px, 88px) scale(0.5, 0.5);
+    -webkit-transform: translate3d(270px, 88px, 0px) scale3d(0.5, 0.5, 1);
+    -moz-animation-timing-function: cubic-bezier(0.405,0.915,0.59, 0.055);
+    -webkit-animation-timing-function: cubic-bezier(0.405,0.915,0.59, 0.055);
+}
+
+@-webkit-keyframes AN-ani-1559 {
+    0% {
+        -webkit-transform: translate3d(38px, 366px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 366px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 366px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1559 {
+    0% {
+        -moz-transform: translate(38px, 366px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 366px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 366px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #AN-sObj-1555 {
+    -moz-animation-name: AN-ani-1559;
+    -webkit-animation-name: AN-ani-1559;
+    -moz-animation-duration: 0.413320987654321s;
+    -webkit-animation-duration: 0.413320987654321s;
+    -moz-animation-delay: 0.741s;
+    -webkit-animation-delay: 0.741s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1555 {
+    -moz-transform: translate(38px, 366px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 366px, 0px) scale3d(0, 0, 1);
+}
+
+@-webkit-keyframes AN-ani-1566 {
+    0% {
+        -webkit-transform: translate3d(29px, -89px, 0px);
+    }
+
+    100% {
+        -webkit-transform: translate3d(29px, 22px, 0px);
+    }
+}
+
+@-moz-keyframes AN-ani-1566 {
+    0% {
+        -moz-transform: translate(29px, -89px);
+    }
+
+    100% {
+        -moz-transform: translate(29px, 22px);
+    }
+}
+
+.run #AN-sObj-1562 {
+    -moz-animation-name: AN-ani-1566;
+    -webkit-animation-name: AN-ani-1566;
+    -moz-animation-duration: 0.7592592592592593s;
+    -webkit-animation-duration: 0.7592592592592593s;
+    -moz-animation-delay: 0s;
+    -webkit-animation-delay: 0s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1562 {
+    -moz-transform: translate(29px, -89px);
+    -webkit-transform: translate3d(29px, -89px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1567 {
+    0% {
+        -webkit-transform: translate3d(29px, -81px, 0px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(29px, -81px, 0px);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(29px, 116px, 0px);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1567 {
+    0% {
+        -moz-transform: translate(29px, -81px);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(29px, -81px);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(29px, 116px);
+        opacity: 1;
+    }
+}
+
+.run #final-score {
+    -moz-animation-name: AN-ani-1567;
+    -webkit-animation-name: AN-ani-1567;
+    -moz-animation-duration: 0.5861481481481481s;
+    -webkit-animation-duration: 0.5861481481481481s;
+    -moz-animation-delay: 0.562s;
+    -webkit-animation-delay: 0.562s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #final-score {
+    -moz-transform: translate(29px, -81px);
+    -webkit-transform: translate3d(29px, -81px, 0px);
+}
+
+@-webkit-keyframes AN-ani-1568 {
+    0% {
+        -webkit-transform: translate3d(38px, 357px, 0px) scale3d(0, 0, 1);
+        opacity: 0;
+    }
+
+    0.01% {
+        -webkit-transform: translate3d(38px, 357px, 0px) scale3d(0, 0, 1);
+        opacity: 1;
+    }
+
+    100% {
+        -webkit-transform: translate3d(38px, 357px, 0px) scale3d(1, 1, 1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes AN-ani-1568 {
+    0% {
+        -moz-transform: translate(38px, 357px) scale(0, 0);
+        opacity: 0;
+    }
+
+    0.01% {
+        -moz-transform: translate(38px, 357px) scale(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        -moz-transform: translate(38px, 357px) scale(1, 1);
+        opacity: 1;
+    }
+}
+
+.run #AN-sObj-1564 {
+    -moz-animation-name: AN-ani-1568;
+    -webkit-animation-name: AN-ani-1568;
+    -moz-animation-duration: 0.3146172839506174s;
+    -webkit-animation-duration: 0.3146172839506174s;
+    -moz-animation-delay: 1.136s;
+    -webkit-animation-delay: 1.136s;
+    -moz-animation-fill-mode: both;
+    -webkit-animation-fill-mode: both;
+}
+
+.restart #AN-sObj-1564 {
+    -moz-transform: translate(38px, 357px) scale(0, 0);
+    -webkit-transform: translate3d(38px, 357px, 0px) scale3d(0, 0, 1);
+}</style>
+
+</head>
+<body>
+<ol id="AN-sObj-parentOl"><li id="AN-sObj-scene-0"><div class="AN-sObj-stage" id="ext-gen2632"><div class="AN-Object" id="AN-sObj-1511"><div id="AN-sObj-val-1511"><img height="800" width="800" src="assets/Sky Background.png"></div></div><div class="AN-Object" id="AN-sObj-1512"><div id="AN-sObj-val-1512"><img height="480" width="320" src="assets/Hill Background.png"></div></div><div class="AN-Object" id="AN-sObj-1513"><div id="AN-sObj-val-1513"><img height="108" width="158" src="assets/quiz.png"></div></div><div id="AN-sObj-1514"><div id="AN-sObj-1515"><span>START!</span></div></div></div></li>
+
+<li id="AN-sObj-scene-1"><div class="AN-sObj-stage" id="ext-gen2779"><div class="AN-Object" id="AN-sObj-1525"><div id="AN-sObj-val-1525"><img height="480" width="320" src="assets/Wood Background.png"></div></div><div id="question"><span>In which state is Austin located?</span></div><div id="button1"><div id="AN-sObj-1528"><span>CALIFORNIA</span></div></div><div id="button2"><div id="AN-sObj-1530"><span>TEXAS</span></div></div><div id="button3"><div id="AN-sObj-1532"><span>OREGON</span></div></div><div id="button4"><div id="AN-sObj-1534"><span>ARIZONA</span></div></div></div></li>
+
+<li id="AN-sObj-scene-2"><div class="AN-sObj-stage" id="ext-gen2886"><div class="AN-Object" id="AN-sObj-1541"><div id="AN-sObj-val-1541"><img height="480" width="320" src="assets/Wood Background.png"></div></div><div id="AN-sObj-1542"><span>Incorrect!</span></div><div id="AN-sObj-1543"><span>The correct answer is:</span></div><div id="correct-answer"><span>Texas</span></div><div id="AN-sObj-1545"><div id="AN-sObj-1546"><span>CONTINUE</span></div></div></div></li>
+
+<li id="AN-sObj-scene-3"><div class="AN-sObj-stage" id="ext-gen2974"><div class="AN-Object" id="AN-sObj-1552"><div id="AN-sObj-val-1552"><img height="480" width="320" src="assets/Wood Background.png"></div></div><div id="AN-sObj-1553"><span>Correct!</span></div><div class="AN-Object" id="AN-sObj-1554"><div id="AN-sObj-val-1554"><img height="278" width="250" src="assets/Smile.gif"></div></div><div id="AN-sObj-1555"><div id="AN-sObj-1556"><span>CONTINUE</span></div></div></div></li>
+
+<li id="AN-sObj-scene-4"><div class="AN-sObj-stage" id="ext-gen3055"><div class="AN-Object" id="AN-sObj-1561"><div id="AN-sObj-val-1561"><img height="480" width="320" src="assets/Wood Background.png"></div></div><div id="AN-sObj-1562"><span>Finished! <br>Your score is:</span></div><div id="final-score"><span>2/4 Points</span></div><div id="AN-sObj-1564"><div id="AN-sObj-1565"><span>TRY AGAIN?</span></div></div></div></li>
+
+</ol>
+
+</body>
+</html>
